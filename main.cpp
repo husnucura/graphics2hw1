@@ -46,7 +46,7 @@ unsigned int currentCurvePoint = 0;
 GLfloat binomial(GLuint n, GLuint k);
 float randomFloat(float min, float max)
 {
-	return min + static_cast<float>(std::rand()) / (static_cast<float>(RAND_MAX / (max - min)));
+	return min + ((float)std::rand()) / RAND_MAX * (max - min);
 };
 struct BezierCurve
 {
@@ -699,7 +699,8 @@ calculateRotationMatrix()
 	glm::vec3 right = glm::normalize(glm::cross(forward, previousUp));
 	glm::vec3 up = glm::normalize(glm::cross(right, forward));
 
-	previousUp = up;
+	if (!freezed)
+		previousUp = up;
 
 	glm::mat3 basis(right, up, forward);
 	return glm::mat4(basis);
@@ -718,7 +719,8 @@ void display()
 	static float rollDeg = 0;
 	static float changeRoll = 2;
 	float rollRad = (float)(rollDeg / 180.f) * M_PI;
-	rollDeg += changeRoll;
+	if (!freezed)
+		rollDeg += changeRoll;
 	if (rollDeg >= 25.f || rollDeg <= -25.f)
 	{
 		changeRoll *= -1.f;
@@ -730,15 +732,9 @@ void display()
 
 	float sint = sin(rollRad / 2);
 	glm::quat rollQuat(cos(rollRad / 2), sint * q.x, sint * q.y, sint * q.z);
-	if (!freezed)
-	{
-		modelingMatrix = glm::toMat4(rollQuat) * modelingMatrix;
-		modelingMatrix = translation * modelingMatrix;
-	}
-	else
-	{
-		modelingMatrix = translation * rotation;
-	}
+	modelingMatrix = glm::toMat4(rollQuat) * modelingMatrix;
+	modelingMatrix = translation * modelingMatrix;
+
 	drawScene();
 
 	if (freezed)
