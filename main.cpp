@@ -39,8 +39,6 @@ glm::mat4 modelingMatrix;
 glm::vec3 eyePos(0, 0, 0);
 glm::vec3 eyeGaze(0, 0, -1);
 glm::vec3 eyeUp(0, 1, 0);
-glm::vec3 worldUp = glm::vec3(0, 1, 0);
-
 glm::mat4 curveModelingMatrix = glm::mat4(1.0);
 const int numCurveSamplePoints = 200;
 unsigned int currentCurvePoint = 0;
@@ -827,11 +825,9 @@ struct BezierSurface
 
 struct BezierSurfaceSampleParams
 {
-	int uSteps; // number of subdivisions in u (samples = uSteps+1)
-	int vSteps; // number of subdivisions in v (samples = vSteps+1)
+	int u;
+	int v;
 };
-
-// --- Utility Functions for Binomial Coefficient --- //
 
 GLuint factorial(GLuint n)
 {
@@ -923,14 +919,14 @@ void generateSurfaces(
 
 	for (const auto &surface : surfaces)
 	{
-		std::vector<std::vector<int>> vertexIndices(sampleParams.uSteps + 1, std::vector<int>(sampleParams.vSteps + 1, -1));
+		std::vector<std::vector<int>> vertexIndices(sampleParams.u, std::vector<int>(sampleParams.v, -1));
 
-		for (int i = 0; i <= sampleParams.uSteps; ++i)
+		for (int i = 0; i < sampleParams.u; ++i)
 		{
-			float u = float(i) / sampleParams.uSteps;
-			for (int j = 0; j <= sampleParams.vSteps; ++j)
+			float u = float(i) / (sampleParams.u - 1);
+			for (int j = 0; j < sampleParams.v; ++j)
 			{
-				float v = (float)j / sampleParams.vSteps;
+				float v = (float)j / (sampleParams.v - 1);
 				Vertex sample = sampleBezierSurface(surface, u, v);
 
 				auto it = vertexMap.find(sample);
@@ -949,9 +945,9 @@ void generateSurfaces(
 			}
 		}
 
-		for (int i = 0; i < sampleParams.uSteps; ++i)
+		for (int i = 0; i + 1 < sampleParams.u; ++i)
 		{
-			for (int j = 0; j < sampleParams.vSteps; ++j)
+			for (int j = 0; j + 1 < sampleParams.v; ++j)
 			{
 				int idx0 = vertexIndices[i][j];
 				int idx1 = vertexIndices[i + 1][j];
