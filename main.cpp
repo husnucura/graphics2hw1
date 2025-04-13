@@ -589,7 +589,7 @@ void sampleBezierCurve(bool isFirst = false)
 	gVertices[2].clear();
 	bezierCurve.sampledPoints[0] = bezierCurve.controlPoints[0];
 	bezierCurve.sampledPoints[numCurveSamplePoints - 1] = bezierCurve.controlPoints[3];
-
+	gVertices[2].push_back(Vertex(bezierCurve.controlPoints[0].x, bezierCurve.controlPoints[0].y, bezierCurve.controlPoints[0].z));
 	for (int i = 1; i + 1 < numCurveSamplePoints; ++i)
 	{
 		float t = float(i) / (numCurveSamplePoints - 1);
@@ -603,6 +603,7 @@ void sampleBezierCurve(bool isFirst = false)
 		bezierCurve.sampledPoints[i] = p;
 		gVertices[2].push_back(Vertex(p.x, p.y, p.z));
 	}
+	gVertices[2].push_back(Vertex(bezierCurve.controlPoints[3].x, bezierCurve.controlPoints[3].y, bezierCurve.controlPoints[3].z));
 	updateOrInitVBO(2, isFirst);
 }
 
@@ -695,15 +696,36 @@ glm::vec3 previousUp = eyeUp;
 glm::mat4
 calculateRotationMatrix()
 {
-	glm::vec3 forward = glm::normalize(bezierCurve.tangentAt(currentCurvePoint));
-	glm::vec3 right = glm::normalize(glm::cross(forward, previousUp));
-	glm::vec3 up = glm::normalize(glm::cross(right, forward));
+	static float rollDeg = 0;
+	static float changeRoll = 2;
 
 	if (!freezed)
-		previousUp = up;
+	{
+		rollDeg += changeRoll;
+		if (rollDeg >= 25.f || rollDeg <= -25.f)
+		{
+			changeRoll *= -1.f;
+		}
+	}
+
+	float rollRad = glm::radians(rollDeg);
+
+	glm::vec3 forward = glm::normalize(bezierCurve.tangentAt(currentCurvePoint));
+	glm::vec3 right = -glm::normalize(glm::cross(forward, previousUp));
+	glm::vec3 up = -glm::normalize(glm::cross(right, forward));
 
 	glm::mat3 basis(right, up, forward);
-	return glm::mat4(basis);
+	glm::quat rotationQuat = glm::normalize(glm::quat_cast(basis));
+
+	glm::quat rollQuat = glm::angleAxis(rollRad, up);
+
+	rotationQuat = rollQuat * rotationQuat;
+
+	rotationQuat = glm::normalize(rotationQuat);
+	previousUp = up;
+
+	// return glm::mat4(basis);
+	return glm::toMat4(rotationQuat);
 }
 
 void display()
@@ -713,36 +735,19 @@ void display()
 	glClearStencil(0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 	glm::vec3 position = bezierCurve.sampledPoints[currentCurvePoint];
-	glm::mat4 rotation = calculateRotationMatrix();
 	glm::mat4 translation = glm::translate(glm::mat4(1.0f), position);
-	modelingMatrix = rotation;
-	static float rollDeg = 0;
-	static float changeRoll = 2;
-	float rollRad = (float)(rollDeg / 180.f) * M_PI;
-	if (!freezed)
-		rollDeg += changeRoll;
-	if (rollDeg >= 25.f || rollDeg <= -25.f)
-	{
-		changeRoll *= -1.f;
-	}
 
-	glm::quat q0(0, 0, 0, 1);
-	glm::quat q1(0, 0, 1, 0);
-	glm::quat q = glm::mix(q0, q1, 0.0f);
-
-	float sint = sin(rollRad / 2);
-	glm::quat rollQuat(cos(rollRad / 2), sint * q.x, sint * q.y, sint * q.z);
-	modelingMatrix = glm::toMat4(rollQuat) * modelingMatrix;
-	modelingMatrix = translation * modelingMatrix;
+	glm::mat4 rotation = calculateRotationMatrix();
+	modelingMatrix = translation * rotation;
 
 	drawScene();
 
 	if (freezed)
 		return;
 	currentCurvePoint++;
-	if (currentCurvePoint >= numCurveSamplePoints)
+	if (currentCurvePoint > numCurveSamplePoints)
 	{
-		currentCurvePoint = 0;
+		currentCurvePoint = 1;
 		ResampleCurve();
 	}
 }
